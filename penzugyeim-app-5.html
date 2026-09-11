@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pénzügyeim — app prototípus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --ink:#84D8D2;
+    --ink-soft:#A9CFCB;
+    --paper:#1C2B39;
+    --paper-raised:#263A4A;
+    --line:#3A4E5F;
+    --grow:#6FAE87;
+    --grow-bg:#2A3830;
+    --alert:#F7F1A4;
+    --alert-bg:#33422C;
+    --muted:#8C9AA8;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{
+    background:#D9D5C9;
+    font-family:'IBM Plex Sans', sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:40px 16px;
+  }
+
+  .phone{
+    width:390px;
+    height:844px;
+    background:#0C0E10;
+    border-radius:52px;
+    padding:14px;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,.35);
+    flex-shrink:0;
+  }
+  .screen{
+    position:relative;
+    width:100%;
+    height:100%;
+    background:var(--paper);
+    border-radius:38px;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    color:var(--ink);
+  }
+  .notch{
+    position:absolute;
+    top:14px; left:50%;
+    transform:translateX(-50%);
+    width:120px; height:28px;
+    background:#0C0E10;
+    border-radius:16px;
+    z-index:5;
+  }
+  .statusbar{
+    padding:20px 26px 4px;
+    display:flex;
+    justify-content:space-between;
+    font-size:13px;
+    font-weight:600;
+    flex-shrink:0;
+  }
+
+  .content{
+    flex:1;
+    overflow-y:auto;
+    padding:8px 22px 24px;
+  }
+  .content::-webkit-scrollbar{display:none;}
+
+  .page{display:none;}
+  .page.active{display:block;}
+
+  /* Shared type */
+  h1.page-title{
+    font-family:'Newsreader', serif;
+    font-weight:500;
+    font-size:25px;
+    letter-spacing:-0.01em;
+    margin:14px 0 4px;
+  }
+  .page-sub{font-size:12px; color:var(--muted); margin-bottom:20px;}
+
+  .top-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+  }
+  .avatar{
+    width:36px; height:36px;
+    border-radius:50%;
+    background:var(--ink);
+    color:var(--paper);
+    font-family:'Newsreader',serif;
+    font-size:14px;
+    display:flex; align-items:center; justify-content:center;
+    margin-top:14px;
+  }
+
+  /* Alert panel */
+  .alert-panel{
+    border:1px solid var(--line);
+    border-left:4px solid var(--alert);
+    background:var(--paper-raised);
+    padding:18px 18px 20px;
+    border-radius:2px;
+    margin-bottom:22px;
+  }
+  .alert-eyebrow{font-size:11px; color:var(--alert); font-weight:600; margin-bottom:6px;}
+  .alert-panel h2{font-family:'Newsreader', serif; font-weight:500; font-size:17px; line-height:1.32; margin-bottom:8px;}
+  .alert-panel p{font-size:13px; color:var(--ink-soft); line-height:1.55; margin-bottom:14px;}
+  .fig-row{display:flex; gap:24px; margin-bottom:16px;}
+  .fig .num{font-size:19px; font-weight:600; font-variant-numeric:tabular-nums;}
+  .fig .num.grow{color:var(--grow);}
+  .fig .lbl{font-size:11px; color:var(--muted); margin-top:1px;}
+
+  .btn{
+    display:block; text-align:center;
+    background:var(--ink); color:var(--paper);
+    font-size:14px; font-weight:500;
+    padding:12px; border-radius:10px;
+    text-decoration:none; margin-bottom:8px;
+    border:none; width:100%; cursor:pointer;
+    font-family:inherit;
+  }
+  .btn-ghost{background:transparent; color:var(--ink-soft); border:1px solid var(--line);}
+
+  /* Summary stat row on overview */
+  .stat-row{
+    display:flex;
+    gap:10px;
+    margin-bottom:24px;
+  }
+  .stat{
+    flex:1;
+    border:1px solid var(--line);
+    padding:12px 14px;
+    border-radius:2px;
+  }
+  .stat .num{font-size:16.5px; font-weight:600; font-variant-numeric:tabular-nums;}
+  .stat .lbl{font-size:10.5px; color:var(--muted); margin-top:3px;}
+
+  .section-head{
+    display:flex; justify-content:space-between; align-items:baseline;
+    padding-bottom:8px; margin-bottom:2px;
+    border-bottom:1px solid var(--line);
+  }
+  .section-head h3{font-family:'Newsreader', serif; font-weight:500; font-size:16px;}
+  .section-head .count{font-size:12px; color:var(--muted);}
+  section{margin-bottom:14px;}
+
+  .contract-row{
+    padding:14px 0;
+    border-bottom:1px solid var(--line);
+    cursor:pointer;
+  }
+  .contract-row .top{display:flex; justify-content:space-between; align-items:baseline;}
+  .contract-row .name{font-size:14.5px; font-weight:500;}
+  .contract-row .money{font-size:13.5px; font-variant-numeric:tabular-nums; color:var(--ink-soft);}
+  .contract-row .sub{font-size:11.5px; color:var(--muted); margin-top:2px;}
+  .status{display:inline-flex; align-items:center; gap:5px; font-size:11.5px; margin-top:6px;}
+  .dot{width:5px; height:5px; border-radius:50%;}
+  .dot.ok{background:var(--grow);}
+  .dot.review{background:var(--alert);}
+
+  /* Contract detail */
+  .detail-box{
+    display:none;
+    border:1px solid var(--line);
+    background:var(--paper-raised);
+    padding:16px 16px 18px;
+    margin:-2px 0 14px;
+    border-radius:2px;
+  }
+  .detail-box.open{display:block;}
+  .detail-box h4{font-size:12px; color:var(--muted); font-weight:500; margin-bottom:10px; text-transform:none;}
+  .holding{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:8px 0; border-bottom:1px solid var(--line); font-size:13px;
+  }
+  .holding:last-of-type{border-bottom:none;}
+  .holding .tkr{font-weight:500;}
+  .holding .pct{color:var(--muted); font-size:11.5px;}
+  .bar-track{background:var(--line); height:3px; border-radius:2px; margin-top:4px; width:100%; overflow:hidden;}
+  .bar-fill{background:var(--ink-soft); height:100%;}
+  .yield-compare{display:flex; justify-content:space-between; margin-top:14px; padding-top:12px; border-top:1px solid var(--line);}
+  .yield-compare .item .num{font-size:17px; font-weight:600;}
+  .yield-compare .item .num.grow{color:var(--grow);}
+  .yield-compare .item .lbl{font-size:11px; color:var(--muted);}
+
+  /* Feed */
+  .feed-item{display:grid; grid-template-columns:70px 1fr; padding:14px 0; border-bottom:1px solid var(--line); font-size:13.5px;}
+  .feed-item .date{color:var(--muted); font-size:11.5px; padding-top:2px;}
+  .feed-item .body strong{font-weight:500; font-size:13.5px;}
+  .feed-item .body p{color:var(--ink-soft); margin-top:3px; line-height:1.5; font-size:12.5px;}
+
+  /* Booking page */
+  .slot-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:18px 0 22px;}
+  .slot{
+    border:1px solid var(--line);
+    padding:12px 10px;
+    text-align:center;
+    font-size:13px;
+    border-radius:6px;
+    cursor:pointer;
+  }
+  .slot.selected{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+  .slot .d{font-size:10.5px; color:inherit; opacity:.65; margin-bottom:2px;}
+
+  .advisor-selector{position:relative;}
+  .advisor-card{
+    display:flex; align-items:center; gap:12px;
+    border:1px solid var(--line); padding:12px 14px; border-radius:2px;
+    cursor:pointer;
+  }
+  .advisor-card.selected{border-color:var(--ink); background:var(--paper-raised);}
+  .advisor-card .av{
+    width:40px; height:40px; border-radius:50%;
+    background:var(--ink); color:var(--paper);
+    font-family:'Newsreader',serif; font-size:15px;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .advisor-card .name{font-size:14px; font-weight:500;}
+  .advisor-card .role{font-size:11.5px; color:var(--muted);}
+  .advisor-card .chev{
+    margin-left:auto; width:18px; height:18px; color:var(--muted);
+    transition:transform .15s ease;
+  }
+  .advisor-card .chev.open{transform:rotate(180deg);}
+  .advisor-dropdown{
+    display:none;
+    flex-direction:column;
+    gap:6px;
+    margin-top:6px;
+    border:1px solid var(--line);
+    background:var(--paper);
+    padding:8px;
+    border-radius:2px;
+  }
+  .advisor-dropdown.open{display:flex;}
+  .advisor-card.option{border-color:transparent; padding:10px 10px;}
+  .advisor-card.option:hover{background:var(--paper-raised);}
+  .advisor-card.option.selected{border-color:var(--line); background:var(--paper-raised);}
+
+  .ref-toggle{display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; margin:18px 0 24px;}
+  .ref-toggle-btn{
+    flex:1; padding:11px 10px; text-align:center; font-size:13px; font-family:inherit;
+    background:none; border:none; color:var(--muted); cursor:pointer;
+  }
+  .ref-toggle-btn.active{background:var(--ink); color:var(--paper); font-weight:500;}
+  .ref-form{display:flex; flex-direction:column; gap:4px;}
+  .ref-label{font-size:11.5px; color:var(--muted); margin-top:12px; margin-bottom:5px;}
+  .ref-input{
+    border:1px solid var(--line); background:var(--paper-raised); color:var(--ink);
+    padding:11px 12px; border-radius:6px; font-size:14px; font-family:inherit;
+    width:100%;
+  }
+  .ref-textarea{resize:none; height:70px;}
+  .ref-info{font-size:11.5px; color:var(--muted); line-height:1.5; margin-top:18px;}
+
+  .ref-list{display:flex; flex-direction:column;}
+  .ref-item{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 0; border-bottom:1px solid var(--line);
+    gap:10px;
+  }
+  .ref-item .ref-main{min-width:0;}
+  .ref-item .ref-name{font-size:13.5px; font-weight:500;}
+  .ref-item .ref-sub{font-size:11px; color:var(--muted); margin-top:2px;}
+  .status-badge{
+    flex-shrink:0;
+    font-size:10.5px; font-weight:500;
+    padding:5px 10px; border-radius:20px;
+    border:none; cursor:pointer; font-family:inherit;
+    white-space:nowrap;
+  }
+  .status-badge.new{background:var(--alert-bg); color:var(--alert);}
+  .status-badge.contacted{background:var(--paper-raised); color:var(--ink-soft); border:1px solid var(--line);}
+  .status-badge.closed{background:var(--grow-bg); color:var(--grow);}
+  .ref-empty{font-size:12.5px; color:var(--muted); padding:14px 0;}
+
+  /* Tab bar */
+  .tabbar{
+    display:flex;
+    border-top:1px solid var(--line);
+    background:var(--paper-raised);
+    padding:10px 10px 26px;
+    flex-shrink:0;
+  }
+  .tab{
+    flex:1; text-align:center; font-size:10.5px; color:var(--muted);
+    display:flex; flex-direction:column; align-items:center; gap:5px;
+    background:none; border:none; font-family:inherit; cursor:pointer;
+  }
+  .tab.active{color:var(--ink); font-weight:500;}
+  .tab .icon{width:20px; height:20px; display:flex; align-items:center; justify-content:center;}
+  .tab .icon svg{width:19px; height:19px;}
+
+  /* AI chat widget */
+  .chat-tab{
+    position:absolute;
+    right:0;
+    top:44%;
+    transform:translateY(-50%);
+    background:var(--ink);
+    color:var(--paper);
+    border:none;
+    width:44px; height:56px;
+    border-radius:12px 0 0 12px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    box-shadow:-2px 0 10px rgba(0,0,0,.25);
+    z-index:20;
+    transition:opacity .15s ease, transform .15s ease;
+  }
+  .chat-tab svg{width:20px; height:20px;}
+  .chat-tab.hidden{opacity:0; pointer-events:none; transform:translateY(-50%) translateX(20px);}
+
+  .chat-panel{
+    position:absolute;
+    top:0; right:0;
+    width:86%;
+    height:100%;
+    background:var(--paper);
+    border-left:1px solid var(--line);
+    box-shadow:-8px 0 24px rgba(0,0,0,.25);
+    display:flex;
+    flex-direction:column;
+    transform:translateX(100%);
+    transition:transform .22s ease;
+    z-index:30;
+  }
+  .chat-panel.open{transform:translateX(0);}
+
+  .chat-header{
+    display:flex; justify-content:space-between; align-items:flex-start;
+    padding:22px 18px 14px;
+    border-bottom:1px solid var(--line);
+    flex-shrink:0;
+  }
+  .chat-title{font-family:'Newsreader', serif; font-weight:500; font-size:17px;}
+  .chat-sub{font-size:11px; color:var(--muted); margin-top:3px;}
+  .chat-close{background:none; border:none; color:var(--muted); cursor:pointer; padding:4px;}
+  .chat-close svg{width:18px; height:18px;}
+
+  .chat-messages{
+    flex:1;
+    overflow-y:auto;
+    padding:16px 18px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .msg{
+    max-width:80%;
+    padding:10px 13px;
+    border-radius:14px;
+    font-size:13px;
+    line-height:1.5;
+  }
+  .msg.bot{
+    background:var(--paper-raised);
+    border:1px solid var(--line);
+    align-self:flex-start;
+    border-bottom-left-radius:4px;
+  }
+  .msg.user{
+    background:var(--ink);
+    color:var(--paper);
+    align-self:flex-end;
+    border-bottom-right-radius:4px;
+  }
+
+  .chat-input-row{
+    display:flex;
+    gap:8px;
+    padding:14px 16px;
+    border-top:1px solid var(--line);
+    flex-shrink:0;
+  }
+  .chat-input{
+    flex:1;
+    border:1px solid var(--line);
+    background:var(--paper-raised);
+    color:var(--ink);
+    border-radius:20px;
+    padding:10px 16px;
+    font-size:13px;
+    font-family:inherit;
+  }
+  .chat-send{
+    width:38px; height:38px;
+    border-radius:50%;
+    background:var(--ink);
+    color:var(--paper);
+    border:none;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .chat-send svg{width:17px; height:17px;}
+
+  /* On an actual phone, drop the mockup frame and fill the real screen */
+  @media (max-width: 500px){
+    html,body{padding:0; align-items:stretch; background:var(--paper);}
+    .phone{
+      width:100%;
+      height:100dvh;
+      background:none;
+      padding:0;
+      border-radius:0;
+      box-shadow:none;
+    }
+    .screen{
+      border-radius:0;
+      height:100dvh;
+    }
+    .notch{display:none;}
+    .statusbar{display:none;}
+    .content{padding-top:4px;}
+    .tabbar{padding-bottom:calc(14px + env(safe-area-inset-bottom));}
+  }
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="screen">
+    <div class="notch"></div>
+    <div class="statusbar">
+      <span>9:41</span>
+      <span>•••</span>
+    </div>
+
+    <div class="content">
+
+      <!-- ÁTTEKINTÉS -->
+      <div class="page active" id="page-overview">
+        <div class="top-row">
+          <div>
+            <h1 class="page-title">Szia, Katalin!</h1>
+            <div class="page-sub">szept. 8., hétfő</div>
+          </div>
+          <div class="avatar">K</div>
+        </div>
+
+        <div class="stat-row">
+          <div class="stat">
+            <div class="num">248 300 Ft</div>
+            <div class="lbl">havi díj összesen</div>
+          </div>
+          <div class="stat">
+            <div class="num grow-text">4 120 000 Ft</div>
+            <div class="lbl">befektetések értéke</div>
+          </div>
+        </div>
+
+        <div class="alert-panel">
+          <div class="alert-eyebrow">ÉRDEMES ÁTNÉZNI</div>
+          <h2>Kedvezőbb életbiztosítás érhető el nálad</h2>
+          <p>Ugyanaz a fedezet, alacsonyabb havi díjért — egy jelenleg elérhető konstrukciónál.</p>
+          <div class="fig-row">
+            <div class="fig">
+              <div class="num grow">−2 400 Ft</div>
+              <div class="lbl">havi megtakarítás</div>
+            </div>
+            <div class="fig">
+              <div class="num">azonos</div>
+              <div class="lbl">fedezet</div>
+            </div>
+          </div>
+          <button class="btn" onclick="goTo('booking')">Időpontot foglalok</button>
+          <button class="btn btn-ghost" onclick="openDetail('life')">Részletek</button>
+        </div>
+
+        <section>
+          <div class="section-head">
+            <h3>Szerződéseim</h3>
+            <div class="count">4 aktív</div>
+          </div>
+
+          <div class="contract-row" onclick="openDetail('life')">
+            <div class="top"><div class="name">Életbiztosítás</div><div class="money">8 900 Ft/hó</div></div>
+            <div class="sub">Union VIG · 2019 óta · 15 000 000 Ft fedezet</div>
+            <div class="status"><span class="dot review"></span>Érdemes átnézni</div>
+          </div>
+          <div class="detail-box" id="detail-life">
+            <h4>Miért érdemes átnézni</h4>
+            <p style="font-size:12.5px; color:var(--ink-soft); line-height:1.55;">A díj a szolgáltatási szinthez képest 2019 óta nem lett újratárgyalva. Egy jelenleg elérhető konstrukció azonos fedezetért havi 2 400 Ft-tal olcsóbb.</p>
+            <button class="btn" style="margin-top:14px;" onclick="goTo('booking')">Időpontot kérek</button>
+          </div>
+
+          <div class="contract-row" onclick="openDetail('invest')">
+            <div class="top"><div class="name">Befektetési számla</div><div class="money">10 000 Ft/hó</div></div>
+            <div class="sub">OVB · 2023 óta · jelenlegi érték: 4 120 000 Ft</div>
+            <div class="status"><span class="dot ok"></span>Rendben</div>
+          </div>
+          <div class="detail-box" id="detail-invest">
+            <h4>Portfólió összetétele</h4>
+            <div class="holding">
+              <div><div class="tkr">iShares Core MSCI World</div><div class="bar-track"><div class="bar-fill" style="width:52%"></div></div></div>
+              <div class="pct">52%</div>
+            </div>
+            <div class="holding">
+              <div><div class="tkr">iShares Core S&P 500</div><div class="bar-track"><div class="bar-fill" style="width:28%"></div></div></div>
+              <div class="pct">28%</div>
+            </div>
+            <div class="holding">
+              <div><div class="tkr">Xtrackers EUR Corp Bond</div><div class="bar-track"><div class="bar-fill" style="width:20%"></div></div></div>
+              <div class="pct">20%</div>
+            </div>
+            <div class="yield-compare">
+              <div class="item"><div class="num grow">+3,2%</div><div class="lbl">hozam idén</div></div>
+              <div class="item"><div class="num">+9,1%</div><div class="lbl">S&P 500 idén</div></div>
+            </div>
+            <p style="font-size:12px; color:var(--muted); line-height:1.5; margin-top:12px;">A kockázati profilodhoz képest az allokációd konzervatívabb, mint amit a korábbi beszélgetésünk alapján megbeszéltünk — érdemes lehet átnézni a tanácsadóddal.</p>
+          </div>
+
+          <div class="contract-row">
+            <div class="top"><div class="name">Nyugdíjbiztosítás</div><div class="money">15 000 Ft/hó</div></div>
+            <div class="sub">NN Biztosító · 2021 óta</div>
+            <div class="status"><span class="dot ok"></span>Rendben</div>
+          </div>
+
+          <div class="contract-row">
+            <div class="top"><div class="name">Lakásbiztosítás</div><div class="money">3 200 Ft/hó</div></div>
+            <div class="sub">Allianz · 2022 óta · 32 000 000 Ft fedezet</div>
+            <div class="status"><span class="dot ok"></span>Rendben</div>
+          </div>
+        </section>
+      </div>
+
+      <!-- AJÁNLÁS -->
+      <div class="page" id="page-referral">
+        <h1 class="page-title">Ajánlás</h1>
+        <div class="page-sub">Ajánlj valakit — ügyfelet vagy leendő munkatársat</div>
+
+        <div class="ref-toggle">
+          <button class="ref-toggle-btn active" id="ref-btn-client" onclick="setReferralType('client')">Ügyfél ajánlása</button>
+          <button class="ref-toggle-btn" id="ref-btn-colleague" onclick="setReferralType('colleague')">Munkatárs ajánlása</button>
+        </div>
+
+        <div class="ref-form">
+          <label class="ref-label">Név</label>
+          <input class="ref-input" type="text" id="ref-name" placeholder="Ajánlott neve">
+
+          <label class="ref-label">Telefonszám vagy e-mail</label>
+          <input class="ref-input" type="text" id="ref-contact" placeholder="+36 30 000 0000">
+
+          <label class="ref-label" id="ref-note-label">Megjegyzés (opcionális)</label>
+          <textarea class="ref-input ref-textarea" id="ref-note" placeholder="Pl. milyen ügyben keresne téged"></textarea>
+
+          <button class="btn" style="width:100%; margin-top:6px;" onclick="submitReferral()">Ajánlás elküldése</button>
+        </div>
+
+        <div class="ref-info" id="ref-info"></div>
+
+        <div class="page-sub" style="margin:26px 0 4px;">Korábbi ajánlásaid</div>
+        <div class="ref-list" id="ref-list"></div>
+      </div>
+
+      <!-- ÜZENETEK -->
+      <div class="page" id="page-messages">
+        <h1 class="page-title">Piaci hírek</h1>
+        <div class="page-sub">Ami rád vonatkozhat</div>
+
+        <div class="feed-item">
+          <div class="date">szept. 4.</div>
+          <div class="body">
+            <strong>Kamatemelés a lakossági megtakarítási termékeknél</strong>
+            <p>Több piaci szereplő is emelte a hozamkilátásokat — érdemes megnézni, hogy a nyugdíjbiztosításod jelenlegi eszközallokációja ezt kihasználja-e.</p>
+          </div>
+        </div>
+        <div class="feed-item">
+          <div class="date">aug. 22.</div>
+          <div class="body">
+            <strong>Változás a lakásbiztosítási feltételekben</strong>
+            <p>Az Allianz frissítette az elemi kár fedezet feltételeit. A te szerződésedet ez nem érinti hátrányosan.</p>
+          </div>
+        </div>
+        <div class="feed-item">
+          <div class="date">aug. 11.</div>
+          <div class="body">
+            <strong>Új, alacsonyabb díjú életbiztosítási konstrukció</strong>
+            <p>Ez az az ajánlat, ami a mostani javaslatod alapját adja — azonos fedezet, alacsonyabb havi díj.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- FOGLALÁS -->
+      <div class="page" id="page-booking">
+        <h1 class="page-title">Időpontfoglalás</h1>
+        <div class="page-sub">Válaszd ki, kinél szeretnél időpontot</div>
+
+        <div class="advisor-selector">
+          <div id="advisor-trigger" onclick="toggleAdvisorDropdown()"></div>
+          <div class="advisor-dropdown" id="advisor-dropdown"></div>
+        </div>
+
+        <div class="page-sub" style="margin:18px 0 4px;">Szabad időpontok</div>
+        <div class="slot-grid" id="slot-grid"></div>
+
+        <button class="btn" onclick="submitBooking()">Időpont megerősítése</button>
+        <div class="page-sub" style="margin-top:8px;">A foglalás automatikusan bekerül mindkettőtök Google Naptárába.</div>
+      </div>
+
+    </div>
+
+    <div class="tabbar">
+      <button class="tab active" data-tab="overview" onclick="goTo('overview')">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg></div>
+        Áttekintés
+      </button>
+      <button class="tab" data-tab="referral" onclick="goTo('referral')">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 8h5M18.5 5.5v5"/></svg></div>
+        Ajánlás
+      </button>
+      <button class="tab" data-tab="messages" onclick="goTo('messages')">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h16v11H8l-4 4V5Z"/></svg></div>
+        Üzenetek
+      </button>
+      <button class="tab" data-tab="booking" onclick="goTo('booking')">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg></div>
+        Foglalás
+      </button>
+    </div>
+
+    <!-- AI CHAT WIDGET -->
+    <button class="chat-tab" id="chat-tab" onclick="toggleChat()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 5h16v11H8l-4 4V5Z"/></svg>
+    </button>
+
+    <div class="chat-panel" id="chat-panel">
+      <div class="chat-header">
+        <div>
+          <div class="chat-title">AI asszisztens</div>
+          <div class="chat-sub">Általában másodperceken belül válaszol</div>
+        </div>
+        <button class="chat-close" onclick="toggleChat()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="chat-messages" id="chat-messages">
+        <div class="msg bot">Szia! Miben segíthetek a szerződéseiddel vagy az appal kapcsolatban?</div>
+        <div class="msg user">Mikor jár le a lakásbiztosításom?</div>
+        <div class="msg bot">A lakásbiztosításod (Allianz) folyamatos, nincs rögzített lejárati dátuma — évente automatikusan megújul, hacsak nem mondod fel. A legutóbbi frissítés 2022-ben volt.</div>
+      </div>
+      <div class="chat-input-row">
+        <input type="text" id="chat-input" class="chat-input" placeholder="Írj egy kérdést…">
+        <button class="chat-send" onclick="sendChat()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h16M13 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  function toggleChat(){
+    document.getElementById('chat-panel').classList.toggle('open');
+    document.getElementById('chat-tab').classList.toggle('hidden');
+  }
+
+  const canned = [
+    "Ez jó kérdés — a tanácsadód, a Foglalás fülön, tud erre pontos választ adni egy rövid egyeztetésen.",
+    "A szerződésed adatai alapján ez rendben van, nincs teendőd.",
+    "Ezt érdemes megnézni a Szerződéseim résznél, ott minden részlet szerepel.",
+    "Ebben tudok segíteni — nézd meg az Üzenetek fület, ott van róla friss hír."
+  ];
+
+  function sendChat(){
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if(!text) return;
+    const box = document.getElementById('chat-messages');
+
+    const userMsg = document.createElement('div');
+    userMsg.className = 'msg user';
+    userMsg.textContent = text;
+    box.appendChild(userMsg);
+    input.value = '';
+    box.scrollTop = box.scrollHeight;
+
+    setTimeout(() => {
+      const botMsg = document.createElement('div');
+      botMsg.className = 'msg bot';
+      botMsg.textContent = canned[Math.floor(Math.random() * canned.length)];
+      box.appendChild(botMsg);
+      box.scrollTop = box.scrollHeight;
+    }, 500);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const input = document.getElementById('chat-input');
+    if(input){
+      input.addEventListener('keydown', e => { if(e.key === 'Enter') sendChat(); });
+    }
+  });
+</script>
+
+<script>
+  const advisors = [
+    { name: "Vendégh Mátyás", role: "Pénzügyi tanácsadó, OVB", slots: [
+      { d: "szept. 10., sze", t: "14:00" },
+      { d: "szept. 10., sze", t: "15:00" },
+      { d: "szept. 12., pén", t: "09:00" },
+      { d: "szept. 12., pén", t: "10:00" }
+    ]},
+    { name: "Váradi Lili", role: "Pénzügyi tanácsadó, OVB", slots: [
+      { d: "szept. 9., ked", t: "11:00" },
+      { d: "szept. 9., ked", t: "12:00" },
+      { d: "szept. 11., cs", t: "16:00" },
+      { d: "szept. 11., cs", t: "17:00" }
+    ]},
+    { name: "Bajcsai Zita", role: "Pénzügyi tanácsadó, OVB", slots: [
+      { d: "szept. 10., sze", t: "08:00" },
+      { d: "szept. 10., sze", t: "09:00" },
+      { d: "szept. 15., ked", t: "13:00" },
+      { d: "szept. 15., ked", t: "14:00" }
+    ]},
+    { name: "Makszim Soma", role: "Fiókvezető, OVB", slots: [
+      { d: "szept. 9., ked", t: "15:00" },
+      { d: "szept. 9., ked", t: "16:00" },
+      { d: "szept. 14., hét", t: "10:00" },
+      { d: "szept. 14., hét", t: "11:00" }
+    ]},
+    { name: "Bozori Péter", role: "Pénzügyi tanácsadó, OVB", slots: [
+      { d: "szept. 9., ked", t: "09:00" },
+      { d: "szept. 9., ked", t: "10:00" },
+      { d: "szept. 13., szo", t: "11:00" },
+      { d: "szept. 13., szo", t: "12:00" }
+    ]}
+  ];
+  let selectedAdvisor = 0;
+  let dropdownOpen = false;
+
+  function initials(fullName){
+    return fullName.split(' ').map(w => w[0]).join('').slice(0,2);
+  }
+
+  function renderAdvisors(){
+    const trigger = document.getElementById('advisor-trigger');
+    const chosen = advisors[selectedAdvisor];
+    trigger.innerHTML = `
+      <div class="advisor-card selected">
+        <div class="av">${initials(chosen.name)}</div>
+        <div>
+          <div class="name">${chosen.name}</div>
+          <div class="role">${chosen.role}</div>
+        </div>
+        <div class="chev ${dropdownOpen ? 'open' : ''}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+      </div>
+    `;
+
+    const list = document.getElementById('advisor-dropdown');
+    list.classList.toggle('open', dropdownOpen);
+    list.innerHTML = advisors.map((a, i) => `
+      <div class="advisor-card option ${i === selectedAdvisor ? 'selected' : ''}" onclick="selectAdvisor(${i})">
+        <div class="av">${initials(a.name)}</div>
+        <div>
+          <div class="name">${a.name}</div>
+          <div class="role">${a.role}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function toggleAdvisorDropdown(){
+    dropdownOpen = !dropdownOpen;
+    renderAdvisors();
+  }
+
+  let selectedSlotIndex = 0;
+
+  function renderSlots(){
+    const grid = document.getElementById('slot-grid');
+    const slots = advisors[selectedAdvisor].slots;
+    selectedSlotIndex = 0;
+    grid.innerHTML = slots.map((s, i) => `
+      <div class="slot ${i === 0 ? 'selected' : ''}" onclick="selectSlot(this, ${i})">
+        <div class="d">${s.d}</div>${s.t}
+      </div>
+    `).join('');
+  }
+
+  function selectAdvisor(i){
+    selectedAdvisor = i;
+    dropdownOpen = false;
+    renderAdvisors();
+    renderSlots();
+  }
+
+  renderAdvisors();
+  renderSlots();
+
+  function goTo(name){
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + name).classList.add('active');
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    const tab = document.querySelector('.tab[data-tab="' + name + '"]');
+    if(tab) tab.classList.add('active');
+    document.querySelector('.content').scrollTop = 0;
+  }
+  function openDetail(id){
+    const box = document.getElementById('detail-' + id);
+    box.classList.toggle('open');
+  }
+  function selectSlot(el, i){
+    document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedSlotIndex = i;
+  }
+
+  function setReferralType(type){
+    currentReferralType = type;
+    document.getElementById('ref-btn-client').classList.toggle('active', type === 'client');
+    document.getElementById('ref-btn-colleague').classList.toggle('active', type === 'colleague');
+    const noteLabel = document.getElementById('ref-note-label');
+    const note = document.getElementById('ref-note');
+    const info = document.getElementById('ref-info');
+    if(type === 'client'){
+      noteLabel.textContent = 'Megjegyzés (opcionális)';
+      note.placeholder = 'Pl. milyen ügyben keresne téged';
+      info.textContent = 'Az ajánlott ügyfél egy tájékoztató SMS-t/e-mailt kap, hogy felvetted vele a kapcsolatot.';
+    } else {
+      noteLabel.textContent = 'Miért lenne jó munkatárs?';
+      note.placeholder = 'Pl. honnan ismered, milyen háttere van';
+      info.textContent = 'Az ajánlás a toborzási folyamat szerint kerül továbbításra az OVB felé.';
+    }
+  }
+
+  let currentReferralType = 'client';
+
+  const statusFlow = ['new', 'contacted', 'closed'];
+  const statusLabel = { new: 'Új', contacted: 'Kapcsolatfelvétel', closed: 'Lezárva' };
+
+  let referrals = [
+    { type: 'client', name: 'Kovács Anna', contact: '+36 30 111 2233', date: '2026.09.02.', status: 'contacted' },
+    { type: 'colleague', name: 'Sipos Bence', contact: 'sipos.bence@gmail.com', date: '2026.08.27.', status: 'closed' }
+  ];
+
+  function cycleStatus(i){
+    const current = referrals[i].status;
+    const idx = statusFlow.indexOf(current);
+    referrals[i].status = statusFlow[(idx + 1) % statusFlow.length];
+    renderReferralList();
+  }
+
+  function renderReferralList(){
+    const list = document.getElementById('ref-list');
+    if(!list) return;
+    if(referrals.length === 0){
+      list.innerHTML = '<div class="ref-empty">Még nincs rögzített ajánlásod.</div>';
+      return;
+    }
+    list.innerHTML = referrals.map((r, i) => `
+      <div class="ref-item">
+        <div class="ref-main">
+          <div class="ref-name">${r.name}</div>
+          <div class="ref-sub">${r.type === 'client' ? 'Ügyfél' : 'Munkatárs'} · ${r.date}</div>
+        </div>
+        <button class="status-badge ${r.status}" onclick="cycleStatus(${i})">${statusLabel[r.status]}</button>
+      </div>
+    `).join('');
+  }
+
+  renderReferralList();
+
+  function submitReferral(){
+    const name = document.getElementById('ref-name').value.trim();
+    const contact = document.getElementById('ref-contact').value.trim();
+    const note = document.getElementById('ref-note').value.trim();
+    const info = document.getElementById('ref-info');
+
+    if(!name || !contact){
+      info.textContent = 'Kérlek add meg legalább a nevet és az elérhetőséget.';
+      info.style.color = 'var(--alert)';
+      return;
+    }
+
+    const rows = [
+      ['Ajánlás típusa', 'Név', 'Elérhetőség', 'Megjegyzés', 'Ajánlotta', 'Dátum'],
+      [
+        currentReferralType === 'client' ? 'Ügyfél' : 'Munkatárs',
+        name, contact, note, 'Katalin',
+        new Date().toLocaleDateString('hu-HU')
+      ]
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:14},{wch:20},{wch:22},{wch:34},{wch:12},{wch:12}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Ajánlás');
+    const stamp = new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb, `ajanlas_${stamp}.xlsx`);
+
+    referrals.unshift({
+      type: currentReferralType, name, contact,
+      date: new Date().toLocaleDateString('hu-HU'), status: 'new'
+    });
+    renderReferralList();
+
+    info.style.color = 'var(--muted)';
+    info.textContent = 'Az ajánlás Excel-táblázatba került és letöltésre került. Élesben ez automatikusan a tanácsadói admin-táblázathoz kerülne csatolásra.';
+
+    document.getElementById('ref-name').value = '';
+    document.getElementById('ref-contact').value = '';
+    document.getElementById('ref-note').value = '';
+  }
+
+  function submitBooking(){
+    const advisor = advisors[selectedAdvisor];
+    const slot = advisor.slots[selectedSlotIndex];
+    const advisorEmail = advisor.name
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .split(' ').join('.') + '@ovb.hu';
+
+    const subject = encodeURIComponent(`Időpontfoglalás — ${slot.d} ${slot.t}`);
+    const body = encodeURIComponent(
+      `Kedves ${advisor.name}!\n\nSzeretnék időpontot foglalni az alábbi időpontra:\n\n` +
+      `Dátum: ${slot.d}\nIdőpont: ${slot.t}\n\nÜdvözlettel,\nKatalin`
+    );
+
+    window.location.href = `mailto:${advisorEmail}?subject=${subject}&body=${body}`;
+  }
+</script>
+</body>
+</html>
